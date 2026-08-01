@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+    <title>Selfie with The Queen</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Class khusus untuk mirror kamera depan */
+        video.mirror {
+            transform: scaleX(-1);
+            -webkit-transform: scaleX(-1);
+        }
+
+        /* OVERLAY BAWAH (Kiri - Bawah) */
+        .overlay {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+
+            width: min(75vw, 720px);
+            max-height: 50vh;
+
+            height: auto;
+            object-fit: contain;
+
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* OVERLAY ATAS (Top - Center dengan Safe Area Manual 100px) */
+        .overlay-top {
+            position: absolute;
+            top: 80px; /* Safe Area Manual 100px */
+            left: 50%;
+            transform: translateX(-50%);
+
+            width: min(75vw, 720px);
+            max-height: 30vh;
+
+            height: auto;
+            object-fit: contain;
+
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .message {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, .7);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 999px;
+            z-index: 99;
+        }
+
+        /* Container untuk grup tombol kontrol di bawah */
+        .controls {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 9999;
+        }
+
+        .capture-btn, .flip-btn {
+            border-radius: 50%;
+            border: 4px solid #fff;
+            background: rgba(255, 255, 255, .2);
+            backdrop-filter: blur(10px);
+            color: white;
+            cursor: pointer;
+            transition: .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .capture-btn {
+            width: 72px;
+            height: 72px;
+            font-size: 28px;
+        }
+
+        .flip-btn {
+            width: 52px;
+            height: 52px;
+            font-size: 22px;
+        }
+
+        .capture-btn:active, .flip-btn:active {
+            transform: scale(.92);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container" id="appContainer">
+
+        <video id="camera" class="mirror" autoplay playsinline muted></video>
+
+        <!-- Overlay Atas (Top-Center dengan Safe Area 100px) -->
+        <img src="overlay-top.png" class="overlay-top" id="overlayTopImg" alt="Overlay Top">
+
+        <!-- Overlay Bawah (Left-Bottom) -->
+        <img src="overlay.png" class="overlay" id="overlayImg" alt="Overlay Bottom">
+
+        <div class="message" id="message">
+            Requesting camera permission...
+        </div>
+
+        <!-- Group Tombol Kontrol -->
+        <div class="controls">
+            <button id="flipBtn" class="flip-btn" title="Ganti Kamera">
+                🔄
+            </button>
+            
+            <button id="captureBtn" class="capture-btn" title="Ambil Foto">
+                📷
+            </button>
+        </div>
+
+        <canvas id="canvas" style="display:none"></canvas>
+
+    </div>
+
+    <script>
+        const video = document.getElementById("camera");
+        const message = document.getElementById("message");
+        const container = document.getElementById("appContainer");
+        const overlay = document.getElementById("overlayImg");
+        const overlayTop = document.getElementById("overlayTopImg");
+        const captureBtn = document.getElementById("captureBtn");
+        const flipBtn = document.getElementById("flipBtn");
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Estimasi Safe Area manual dalam Pixel
+        const MANUAL_SAFE_AREA_TOP = 80;
+
+        let currentFacingMode = "user";
+        let currentStream = null;
+
+        async function startCamera(facingMode) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            message.style.display = "block";
+            message.innerText = "Switching camera...";
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: facingMode
+                    },
+                    audio: false
+                });
+
+                currentStream = stream;
+                video.srcObject = stream;
+
+                if (facingMode === "user") {
+                    video.classList.add("mirror");
+                } else {
+                    video.classList.remove("mirror");
+                }
+
+                message.innerText = "Camera Ready";
+
+                setTimeout(() => {
+                    message.style.display = "none";
+                }, 1200);
+
+            } catch (err) {
+                console.error(err);
+                message.innerText = "Camera error or permission denied.";
+            }
+        }
+
+        startCamera(currentFacingMode);
+
+        flipBtn.addEventListener("click", () => {
+            currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+            startCamera(currentFacingMode);
+        });
+
+        captureBtn.addEventListener("click", async () => {
+            if (!video.videoWidth) return;
+
+            // 1. Skala HD
+            const dpr = Math.max(window.devicePixelRatio || 1, 2);
+            const cW = container.clientWidth;
+            const cH = container.clientHeight;
+
+            canvas.width = cW * dpr;
+            canvas.height = cH * dpr;
+
+            // 2. Crop Object-Fit Cover
+            const vW = video.videoWidth;
+            const vH = video.videoHeight;
+            const videoRatio = vW / vH;
+            const containerRatio = cW / cH;
+
+            let sX, sY, sSw, sSh;
+
+            if (videoRatio > containerRatio) {
+                sSh = vH;
+                sSw = vH * containerRatio;
+                sX = (vW - sSw) / 2;
+                sY = 0;
+            } else {
+                sSw = vW;
+                sSh = vW / containerRatio;
+                sX = 0;
+                sY = (vH - sSh) / 2;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            // 3. Gambar Video (Mirror jika kamera depan)
+            ctx.save();
+            if (currentFacingMode === "user") {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+
+            ctx.drawImage(video, sX, sY, sSw, sSh, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            // 4A. Hitung & Snap OVERLAY ATAS (Top - Center + Manual Safe Area 100px)
+            if (overlayTop && overlayTop.naturalWidth) {
+                const topRect = overlayTop.getBoundingClientRect();
+
+                // Hitung proporsi lebar
+                const topWidthRatio = topRect.width / cW;
+                const otW = canvas.width * topWidthRatio;
+
+                const topNaturalRatio = overlayTop.naturalHeight / overlayTop.naturalWidth;
+                const otH = otW * topNaturalRatio;
+
+                // Posisi X di Tengah
+                const otX = (canvas.width - otW) / 2;
+
+                // Posisi Y disesuaikan dengan skala DPR agar offset 100px presisi di Canvas HD
+                const otY = MANUAL_SAFE_AREA_TOP * dpr;
+
+                ctx.drawImage(overlayTop, otX, otY, otW, otH);
+            }
+
+            // 4B. Hitung & Snap OVERLAY BAWAH (Left - Bottom)
+            if (overlay && overlay.naturalWidth) {
+                const overlayRect = overlay.getBoundingClientRect();
+                const overlayWidthRatio = overlayRect.width / cW;
+                const oW = canvas.width * overlayWidthRatio;
+
+                const overlayNaturalRatio = overlay.naturalHeight / overlay.naturalWidth;
+                const oH = oW * overlayNaturalRatio;
+
+                const oX = 0;
+                const oY = canvas.height - oH;
+
+                ctx.drawImage(overlay, oX, oY, oW, oH);
+            }
+
+            // 5. Process Export
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png", 1.0));
+            const file = new File([blob], "queens-belly.png", { type: "image/png" });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: "Queen's Belly",
+                        text: "Crowning Every Bite 👑🍩",
+                        files: [file]
+                    });
+                } catch (e) {
+                    console.log(e);
+                }
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "queens-belly.png";
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+
+</body>
+
+</html>
