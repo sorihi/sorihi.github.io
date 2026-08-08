@@ -88,7 +88,7 @@
 
         function initPrompts() {
             totalStudents = readOrAskInteger(totalStudents, 'Jumlah total anggota?');
-            maxPerGroup = readOrAskInteger(maxPerGroup, 'Jumlah anggota per kelompok?');
+            maxPerGroup = readOrAskInteger(maxPerGroup, 'Jumlah max. anggota per kelompok?');
             if (totalStudents <= 0 || maxPerGroup <= 0) {
                 alert('Angka yang dimasukkan tidak valid. Muat ulang untuk mencoba lagi.');
                 return;
