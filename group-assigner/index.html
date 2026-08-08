@@ -5,29 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Group Assigner</title>
     <link href="css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container py-4">
-        <h1 class="mb-3">Group Assigner</h1>
-        <p class="text-muted">Masukkan nama Anda untuk dimasukkan dalam kelompok</p>
+    <style>
+        .group-card {
+            transition: transform 300ms ease, box-shadow 300ms ease, background-color 300ms ease;
+            will-change: transform;
+            transform: translateY(0);
+        }
 
-        <div id="controls" class="mb-3">
-            <form id="nameForm" class="row g-2 align-items-center">
+        .group-card.is-randomizing {
+            transform: translateY(10px);
+        }
+
+        .assigned-notice {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-left: 0.35rem;
+            opacity: 1;
+            transition: opacity 300ms ease, transform 300ms ease;
+            animation: noticePulse 300ms ease;
+        }
+
+        .assigned-notice.is-fading {
+            opacity: 0;
+            transform: translateY(-2px) scale(0.85);
+        }
+
+        @keyframes noticePulse {
+            0% {
+                transform: scale(0.85);
+            }
+            50% {
+                transform: scale(1.18);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4 mt-5">
+        <div class="text-center">
+            <h1 class="mb-4"><strong>🚀 Group Assigner</strong></h1>
+            <p class="text-muted"><small>Masukkan nama untuk dimasukkan dalam kelompok</small></p>
+        </div>
+
+        <div id="controls" class="mb-5">
+            <form id="nameForm" class="row g-2 align-items-center justify-content-center">
                 <div class="col-auto">
-                    <input id="studentName" class="form-control" type="text" placeholder="Student name" autocomplete="off">
+                    <input id="studentName" class="form-control border-0 shadow-sm bg-white" type="text" placeholder="Nama mahasiswa" autocomplete="off">
                 </div>
                 <div class="col-auto">
-                    <button id="submitBtn" class="btn btn-primary" type="submit">Submit</button>
+                    <button id="submitBtn" class="btn btn-primary" type="submit">Assign</button>
                 </div>
-                <div class="col-auto align-self-center">
-                    <span id="remaining" class="text-muted"></span>
+                <div class="col-auto align-self-center ms-2">
+                    <small>
+                        <span id="remaining" class="text-muted"></span>
+                    </small>
                 </div>
             </form>
         </div>
 
-        <div id="groupsRow" class="row gy-3"></div>
+        <div id="groupsRow" class="row gy-3 justify-content-center"></div>
 
-        <div id="doneAlert" class="alert alert-success mt-3 d-none">Semua kelompok sudah terisi.</div>
+        <div id="doneAlert" class="text-center mt-3 d-none"><small class="text-muted">✅ Semua kelompok sudah terisi</small></div>
     </div>
 
     <script src="js/bootstrap.bundle.min.js"></script>
@@ -36,6 +78,7 @@
         let totalStudents = 0;
         let maxPerGroup = 0;
         let groups = [];
+        let groupTargets = [];
         let assignedCount = 0;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -44,8 +87,8 @@
         });
 
         function initPrompts() {
-            totalStudents = askInteger('Jumlah mahasiswa?');
-            maxPerGroup = askInteger('Jumlah anggota per kelompok?');
+            totalStudents = readOrAskInteger(totalStudents, 'Jumlah mahasiswa?');
+            maxPerGroup = readOrAskInteger(maxPerGroup, 'Jumlah anggota per kelompok?');
             if (totalStudents <= 0 || maxPerGroup <= 0) {
                 alert('Angka yang dimasukkan tidak valid. Muat ulang untuk mencoba lagi.');
                 return;
@@ -53,11 +96,37 @@
             const groupCount = Math.ceil(totalStudents / maxPerGroup);
             // initialize groups array
             groups = Array.from({length: groupCount}, () => []);
+            groupTargets = buildGroupTargets(totalStudents, maxPerGroup, groupCount);
             renderGroups(groupCount);
             updateRemaining();
         }
 
-        function askInteger(message) {
+        function buildGroupTargets(total, maxSize, groupCount) {
+            const targets = Array.from({length: groupCount}, () => Math.floor(total / groupCount));
+            let extraStudents = total % groupCount;
+
+            for (let i = 0; i < targets.length && extraStudents > 0; i++) {
+                targets[i]++;
+                extraStudents--;
+            }
+
+            for (let i = 0; i < targets.length; i++) {
+                if (targets[i] > maxSize) {
+                    targets[i] = maxSize;
+                }
+            }
+
+            for (let i = targets.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [targets[i], targets[j]] = [targets[j], targets[i]];
+            }
+
+            return targets;
+        }
+
+        function readOrAskInteger(currentValue, message) {
+            if (currentValue > 0) return currentValue;
+
             let val;
             do {
                 const r = prompt(message);
@@ -74,14 +143,14 @@
                 const col = document.createElement('div');
                 col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
                 col.innerHTML = `
-                    <div class="card h-100" data-group-index="${i}">
-                        <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card group-card border-0 shadow-sm h-100" data-group-index="${i}">
+                        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>Kelompok ${i+1}</strong>
+                                <strong>🚀 Kelompok ${i+1}</strong>
                             </div>
                             <div class="assign-placeholder"></div>
                         </div>
-                        <ul class="list-group list-group-flush members" style="min-height:60px;"></ul>
+                        <div class="members card-body pt-0" style="min-height:60px;"></div>
                     </div>
                 `;
                 row.appendChild(col);
@@ -105,8 +174,7 @@
             if (!name) return;
             if (assignedCount >= totalStudents) return;
             disableForm(true);
-            const forced = findForcedGroupIndex();
-            animateAssign(name, forced).then(groupIndex => {
+            animateAssign(name).then(groupIndex => {
                 appendToGroup(groupIndex, name);
                 assignedCount++;
                 updateRemaining();
@@ -124,93 +192,48 @@
             document.getElementById('studentName').disabled = disabled;
         }
 
-        function availableGroupIndexes() {
-            const idxs = [];
-            const cards = document.querySelectorAll('#groupsRow .card');
-            cards.forEach((card, i) => {
-                const count = groups[i].length;
-                if (count < maxPerGroup) idxs.push(i);
-            });
-            return idxs;
-        }
+        function pickWeightedGroupIndex() {
+            const weighted = [];
 
-        // If one group has exactly the same number of free slots as
-        // remaining unassigned students, that group must take all remaining.
-        function findForcedGroupIndex() {
-            const remaining = totalStudents - assignedCount; // includes current submit
             for (let i = 0; i < groups.length; i++) {
-                const slotsLeft = maxPerGroup - groups[i].length;
-                if (slotsLeft === remaining) return i;
+                const remainingSeats = groupTargets[i] - groups[i].length;
+                for (let j = 0; j < remainingSeats; j++) {
+                    weighted.push(i);
+                }
             }
-            return -1;
+
+            if (weighted.length === 0) return -1;
+            return weighted[Math.floor(Math.random() * weighted.length)];
         }
 
-        function animateAssign(name, forcedIndex) {
+        function animateAssign(name) {
             return new Promise((resolve, reject) => {
                 const cards = Array.from(document.querySelectorAll('#groupsRow .card'));
-                const totalSteps = (typeof forcedIndex === 'number' && forcedIndex >= 0)
-                    ? 6 + Math.floor(Math.random() * 6) // shorter animation when forced
-                    : 20 + Math.floor(Math.random() * 16); // 20-35 steps
-                let step = 0;
-                let lastIndex = -1;
-                const interval = 80;
+                const finalIdx = pickWeightedGroupIndex();
+                if (finalIdx < 0) return reject('No available groups');
+                let phase = 0;
+                const pulseCount = 3;
 
-                const available = availableGroupIndexes();
-                if (available.length === 0) return reject('No available groups');
+                const pulse = () => {
+                    const active = phase % 2 === 0;
+                    cards.forEach((card, index) => {
+                        card.style.transitionDelay = `${(index % 4) * 40}ms`;
+                        card.classList.toggle('is-randomizing', active);
+                    });
 
-                const placeholderSpans = cards.map(card => card.querySelector('.assign-placeholder'));
-
-                const timer = setInterval(() => {
-                    // remove highlight from previous
-                    if (lastIndex >= 0) {
-                        cards[lastIndex].classList.remove('border', 'border-3', 'border-primary');
-                        const ph = placeholderSpans[lastIndex];
-                        if (ph) ph.textContent = '';
+                    phase++;
+                    if (phase < pulseCount * 2) {
+                        setTimeout(pulse, 300);
+                    } else {
+                        cards.forEach(card => {
+                            card.classList.remove('is-randomizing');
+                            card.style.transitionDelay = '';
+                        });
+                        resolve(finalIdx);
                     }
+                };
 
-                    // choose random index only from non-full groups
-                    const currentAvail = availableGroupIndexes();
-                    if (currentAvail.length === 0) {
-                        clearInterval(timer);
-                        return reject('No available groups during animation');
-                    }
-                    const idx = currentAvail[Math.floor(Math.random() * currentAvail.length)];
-                    lastIndex = idx;
-
-                    // show name in placeholder and highlight
-                    cards[idx].classList.add('border', 'border-3', 'border-primary');
-                    const ph = placeholderSpans[idx];
-                    if (ph) ph.textContent = name;
-
-                    step++;
-                    if (step >= totalSteps) {
-                        clearInterval(timer);
-                        // pick final group from available (non-full) or use forced index
-                        const avail = availableGroupIndexes();
-                        if (avail.length === 0) return reject('No available group at final step');
-                        const finalIdx = (typeof forcedIndex === 'number' && forcedIndex >= 0)
-                            ? forcedIndex
-                            : avail[Math.floor(Math.random() * avail.length)];
-
-                        // clear last highlight
-                        if (lastIndex >= 0) {
-                            cards[lastIndex].classList.remove('border', 'border-3');
-                            const ph2 = placeholderSpans[lastIndex];
-                            if (ph2) ph2.textContent = '';
-                        }
-
-                        // briefly highlight final target and show name
-                        cards[finalIdx].classList.add('border', 'border-3', 'border-success');
-                        const phFinal = placeholderSpans[finalIdx];
-                        if (phFinal) phFinal.textContent = name;
-
-                        setTimeout(() => {
-                            if (phFinal) phFinal.textContent = '';
-                            cards[finalIdx].classList.remove('border', 'border-3', 'border-success');
-                            resolve(finalIdx);
-                        }, 600);
-                    }
-                }, interval);
+                pulse();
             });
         }
 
@@ -218,10 +241,34 @@
             groups[index].push(name);
             const card = document.querySelectorAll('#groupsRow .card')[index];
             const ul = card.querySelector('.members');
-            const li = document.createElement('li');
-            li.className = 'list-group-item';
-            li.textContent = name;
+            const li = document.createElement('div');
+            li.className = 'd-flex align-items-center';
+
+            // make name lowercase and capitalize first letter of each word
+            const formattedName = name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = '🧑‍🚀 ' + formattedName;
+
+            const notice = document.createElement('span');
+            notice.className = 'assigned-notice';
+            notice.setAttribute('aria-hidden', 'true');
+            notice.textContent = '✅';
+
+            li.appendChild(nameSpan);
+            li.appendChild(notice);
             ul.appendChild(li);
+
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    notice.classList.add('is-fading');
+                });
+            }, 1000);
+
+            setTimeout(() => {
+                notice.remove();
+            }, 1450);
+
             // update count if displayed
             const countEl = card.querySelector('.count');
             if (countEl) countEl.textContent = groups[index].length;
