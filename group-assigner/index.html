@@ -54,7 +54,7 @@
         <div id="controls" class="mb-5">
             <form id="nameForm" class="row g-2 align-items-center justify-content-center">
                 <div class="col-auto">
-                    <input id="studentName" class="form-control border-0 shadow-sm bg-white" type="text" placeholder="Nama mahasiswa" autocomplete="off">
+                    <input id="studentName" class="form-control border-0 shadow-sm bg-white" type="text" placeholder="Nama anggota" autocomplete="off">
                 </div>
                 <div class="col-auto">
                     <button id="submitBtn" class="btn btn-primary" type="submit">Assign</button>
@@ -87,7 +87,7 @@
         });
 
         function initPrompts() {
-            totalStudents = readOrAskInteger(totalStudents, 'Jumlah mahasiswa?');
+            totalStudents = readOrAskInteger(totalStudents, 'Jumlah anggota?');
             maxPerGroup = readOrAskInteger(maxPerGroup, 'Jumlah anggota per kelompok?');
             if (totalStudents <= 0 || maxPerGroup <= 0) {
                 alert('Angka yang dimasukkan tidak valid. Muat ulang untuk mencoba lagi.');
